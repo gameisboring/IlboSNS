@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<mapper namespace="com.IlboSns.dao.IlboBoardDao">
+	<select id="getBoard" resultMap="boardView" parameterType="int">
+		SELECT MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,BO_VISIBLITY, BO_MODDATE,BO_GP_NUM,GP_NAME
+		FROM (SELECT ROWNUM rn ,MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,BO_VISIBLITY, BO_MODDATE,BO_GP_NUM,GP_NAME
+		FROM (SELECT DISTINCT MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE ,BO_VISIBLITY, BO_MODDATE,BO_GP_NUM,GP_NAME
+		FROM ( SELECT MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE ,BO_VISIBLITY, BO_MODDATE,BO_GP_NUM,GP_NAME
+		FROM ILBO_BOARD INNER JOIN ILBO_MEMBER ON BO_WRITER = MEM_ID
+		LEFT JOIN ILBO_GROUP ON GP_NUM = BO_GP_NUM
+		LEFT JOIN ILBO_FOLLOW ON (BO_WRITER = FLW_RECEIVER)
+		WHERE BO_GROUPNUM =0 AND ((FLW_FOLLOWER = #{loginId} AND BO_VISIBLITY!='비공개') OR BO_WRITER = #{loginId})
+		) LEFT JOIN ILBO_FOLLOW ON (MEM_ID = FLW_FOLLOWER)
+		WHERE MEM_ID = #{loginId} OR ((FLW_RECEIVER = #{loginId} AND (BO_VISIBLITY = '친구만')) OR BO_VISIBLITY = '전체공개')
+		ORDER BY BO_NUM DESC
+		))
+		WHERE rn BETWEEN #{start} AND #{end}
+	</select>
+
+	<select id="getBoardByBoNum" resultMap="boardView" parameterType="int">
+		SELECT MEM_ID, MEM_PROFILE, MEM_NAME, BO_TYPE ,BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM,BO_VISIBLITY, BO_MODDATE
+		FROM ILBO_BOARD INNER JOIN ILBO_MEMBER ON BO_WRITER = MEM_ID
+		WHERE BO_NUM = #{boNum}
+	</select>
+
+	<select id="getFilesByGroupNum" resultMap="boardView" parameterType="int">
+		SELECT MEM_ID, MEM_PROFILE, MEM_NAME, BO_TYPE ,BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM,BO_VISIBLITY, BO_MODDATE
+		FROM ILBO_BOARD INNER JOIN ILBO_MEMBER ON BO_WRITER = MEM_ID
+		WHERE BO_GROUPNUM = #{boGroupNum}
+	</select>
+
+	<select id="getBoardById" resultMap="boardView" parameterType="int">
+		select MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE ,BO_VISIBLITY, BO_MODDATE
+		from (select rownum rn, ilbo_board.*,ilbo_member.*
+		from ilbo_board,ilbo_member
+		where bo_writer = #{loginId} and mem_id = bo_writer)
+		where rn between #{start} and #{end}
+	</select>
+
+	<select id="selectBoardNum" parameterType="com.IlboSns.dto.IlboBoardDto" resultType="int">
+		SELECT NVL(MAX(BO_NUM),0) + 1 FROM ILBO_BOARD
+	</select>
+
+	<insert id="insertBoWrite" parameterType="com.IlboSns.dto.IlboBoardDto">
+		INSERT INTO ILBO_BOARD(BO_NUM, BO_VISIBLITY, BO_CONTENT, BO_WRITER, BO_DATE, BO_FILE,BO_WRITERSNAME, BO_TYPE
+		<if test="boGroupNum != null">,BO_GROUPNUM</if>
+		)
+		VALUES(#{boNum}, #{boVisiblity}, #{boContent}, #{boWriter}, SYSDATE, #{boFile}, #{boWritersName}, #{boType}
+		<if test="boGroupNum != null">,#{boGroupNum}</if>
+		)
+	</insert>
+
+	<insert id="insertGroupBoWrite" parameterType="com.IlboSns.dto.IlboBoardGpDto">
+		INSERT INTO ILBO_BOARD(BO_NUM, BO_VISIBLITY, BO_CONTENT, BO_WRITER, BO_DATE, BO_FILE,BO_WRITERSNAME, BO_TYPE
+		<if test="boGroupNum != null">,BO_GROUPNUM</if>
+		,BO_GP_NUM)
+		VALUES(#{boNum}, #{boVisiblity}, #{boContent}, #{boWriter}, SYSDATE, #{boFile}, #{boWritersName}, #{boType}
+		<if test="boGroupNum != null">,#{boGroupNum}</if>
+		,#{gpNum})
+
+	</insert>
+
+	<delete id="boardDelete" parameterType="int">
+		DELETE FROM ILBO_BOARD WHERE BO_NUM = #{bnum}
+	</delete>
+	<select id="selectbFile" parameterType="int" resultType="String">
+		SELECT BO_FILE FROM ILBO_BOARD WHERE BO_NUM= #{bnum}
+	</select>
+
+	<select id="checkShareDuplicate" resultMap="boarddto">
+		SELECT * FROM ILBO_BOARD
+		WHERE BO_FILE =#{boFile} AND BO_WRITER = #{loginId}
+	</select>
+
+	<select id="getReply" resultMap="boardReply">
+		SELECT RE_WRITER,MEM_NAME,RE_CONTENT,TO_CHAR(RE_DATE,'YYYY-MM-DD HH24:MI') AS RE_DATE,RE_BONUM,RE_GROUP,RE_SEQ,
+		(SELECT MEM_NAME FROM ILBO_MEMBER WHERE MEM_ID = RE_TAG) RE_TAG_NAME,RE_TAG,MEM_PROFILE
+		FROM ILBO_MEMBER,ILBO_REPLY
+		WHERE MEM_ID = RE_WRITER
+		AND RE_BONUM = #{boNum}
+		ORDER BY RE_GROUP ASC, RE_SEQ ASC
+	</select>
+
+	<select id="getMaxGroupNum" parameterType="int" resultType="int">
+		SELECT NVL(MAX(RE_GROUP),0) FROM ILBO_REPLY WHERE RE_BONUM = #{boNum}
+	</select>
+
+	<insert id="insertReply" parameterType="com.IlboSns.dto.IlboBoardReplyDto">
+		INSERT INTO ILBO_REPLY<!-- (RE_WRITER,RE_CONTENT,RE_DATE,RE_BONUM,RE_GROUP,RE_TAG,RE_SEQ) -->
+		VALUES(#{reWriter},#{reContent},SYSDATE,#{reBoNum},#{reGroup},#{reTagId},(select nvl(max(re_seq),0)+1 from ilbo_reply where re_bonum = #{reBoNum} and re_group = #{reGroup}))
+	</insert>
+
+	<delete id="replyDelete" parameterType="int">
+		DELETE FROM ILBO_REPLY WHERE re_BoNum = #{boNum} and re_Group = #{reGroup} and re_Seq = #{reSeq}
+	</delete>
+
+	<delete id="replyDeleteByReGroup" parameterType="int">
+		DELETE FROM ILBO_REPLY WHERE RE_BONUM = #{boNum} AND RE_GROUP = #{reGroup}
+	</delete>
+
+	<select id="getSearchBoard" resultMap="boardView">
+		SELECT MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,BO_VISIBLITY, BO_MODDATE
+		FROM (SELECT ROWNUM rn, MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,BO_VISIBLITY, BO_MODDATE
+		FROM ILBO_BOARD b INNER JOIN ILBO_MEMBER m ON BO_WRITER = MEM_ID
+		WHERE m.MEM_NAME like '%' || #{q} || '%' or b.BO_CONTENT like '%' || #{q} || '%')
+		WHERE rn BETWEEN #{start} AND #{end}
+	</select>
+	<select id="getSearchHashTag" resultMap="boardView">
+		SELECT MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,BO_VISIBLITY, BO_MODDATE
+		FROM (SELECT ROWNUM rn, MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,BO_VISIBLITY, BO_MODDATE
+		FROM ILBO_BOARD b INNER JOIN ILBO_MEMBER m ON BO_WRITER = MEM_ID INNER JOIN ILBO_BOARD_TAG bt ON b.BO_NUM = bt.BOARD_POST_NUM INNER JOIN ILBO_TAG t ON bt.TAG_NUM = t.POST_TAG_NUM
+		WHERE t.TAG_NAME = #{q})
+		WHERE rn BETWEEN #{start} AND #{end}
+	</select>
+
+	<select id="selectPostTagNum" resultType="int">
+		SELECT NVL(MAX(TAG_NUM),0) FROM ILBO_BOARD_TAG
+	</select>
+
+	<insert id="insertBoardTag">
+		INSERT INTO ILBO_BOARD_TAG VALUES(#{bNum},#{selectPostTagNum})
+	</insert>
+
+	<insert id="insertTag">
+		INSERT INTO ILBO_TAG VALUES(#{selectPostTagNum},#{hashTag})
+	</insert>
+
+	<!-- <select id="getNumOfShare" resultMap="ranking"> SELECT COUNT(*) AS NUM_OF_INTERATION, b.bo_num, b.bo_content FROM ILBO_BOARD a, ilbo_board b where a.bo_file = TO_NCHAR(b.bo_num) GROUP BY b.bo_num, b.bo_content order by NUM_OF_INTERATION desc </select> <select id="getRanking" resultMap="ranking"> SELECT BO_NUM, BO_CONTENT FROM ILBO_BOARD WHERE BO_NUM = #{boNum} </select> -->
+
+	<update id="updateBoard" parameterType="com.IlboSns.dto.IlboBoardDto">
+		UPDATE ILBO_BOARD
+		SET
+		BO_VISIBLITY = #{boVisiblity},
+		BO_CONTENT = #{boContent},
+		BO_MODDATE = TO_DATE(#{boModDate},'yyyy-mm-dd hh24:mi:ss')
+		<if test="boType != null">
+			, BO_TYPE = #{boType}
+		</if>
+		WHERE BO_NUM = #{boNum}
+	</update>
+
+	<select id="getLikeRanking" resultMap="boardView">
+		select count(li_bo_num) as NUM_OF_INTERATION ,MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,BO_VISIBLITY, BO_MODDATE
+		from ilbo_board, ilbo_like, ilbo_member where bo_num = LI_BO_NUM AND MEM_ID = BO_WRITER
+		group by MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,BO_VISIBLITY, BO_MODDATE order by count(li_bo_num) desc
+	</select>
+
+	<select id="getReplyRanking" resultMap="boardView">
+		select count(re_bonum) as NUM_OF_INTERATION ,MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,BO_VISIBLITY, BO_MODDATE
+		from ilbo_board, ilbo_reply, ilbo_member where bo_num = RE_BONUM AND MEM_ID = BO_WRITER
+		group by MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,BO_VISIBLITY, BO_MODDATE order by count(re_bonum) desc
+	</select>
+
+	<select id="getShareRanking" resultMap="boardView">
+		SELECT COUNT(*) AS NUM_OF_INTERATION, MEM_ID, MEM_PROFILE, MEM_NAME, b.BO_NUM, b.BO_CONTENT, b.BO_DATE, b.BO_FILE, b.BO_GROUPNUM, b.BO_TYPE,b.BO_VISIBLITY, b.BO_MODDATE
+		FROM ILBO_BOARD a, ilbo_board b, ilbo_member 
+		WHERE a.bo_file = TO_NCHAR(b.bo_num) and b.bo_writer = mem_id
+		GROUP BY MEM_ID, MEM_PROFILE, MEM_NAME, b.BO_NUM, b.BO_CONTENT, b.BO_DATE, b.BO_FILE, b.BO_GROUPNUM, b.BO_TYPE, b.BO_VISIBLITY, b.BO_MODDATE 
+		order by NUM_OF_INTERATION desc
+	</select>
+
+	
+	<select id="getBoardCount" parameterType="int" resultType="int">
+		SELECT NVL(COUNT(*),0) FROM ILBO_BOARD WHERE BO_WRITER = #{memId}
+	</select>
+	
+	<!-- <select id="getNumOfLikes" parameterType="int" resultType="int"> SELECT COUNT(*) AS LIKES FROM ILBO_LIKE WHERE LI_BO_NUM = #{boNum} </select> <select id="getNumOfReplies" parameterType="int" resultType="int"> SELECT COUNT(*) FROM ILBO_REPLY WHERE RE_BONUM = #{boNum} </select> -->
+
+	<select id="getMaxGpNum" resultType="int">
+		SELECT NVL(MAX(GP_NUM),0) +1 FROM ILBO_GROUP
+	</select>
+
+	<insert id="groupCreate" parameterType="com.IlboSns.dto.IlboGroupDto">
+		INSERT INTO ILBO_GROUP(GP_NUM,GP_NUM_CODE,GP_NAME,GP_IMG,GP_DISCLOSURE,GP_MEMBER,GP_DATE,GP_MANAGER,GP_MEMBER_COUNT) VALUES(#{gpNum},#{gpNumCode},#{gpName},#{gpImg},#{gpDisclosure},#{gpMember},SYSDATE,'그룹장',1)
+	</insert>
+
+	<select id="getGroup" parameterType="int" resultMap="GroupDto">
+		select
+		GP_NUM,GP_IMG,GP_NAME,GP_MEMBER_COUNT,GP_MEMBER
+		FROM
+		( select ROWNUM rn,GP_NUM,GP_IMG,GP_NAME, GP_MEMBER_COUNT,GP_MEMBER
+		from ILBO_GROUP
+		WHERE GP_NUM <![CDATA[ <= ]]>
+		#{end})
+		where
+		rn between #{start} and #{end} AND GP_NAME IS NOT NULL ORDER BY GP_NUM
+	</select>
+
+	<select id="getSearchGroup" resultMap="GroupDto">
+		select
+		GP_IMG,GP_NAME,GP_MEMBER_COUNT,GP_DISCLOSURE,GP_NUM
+		FROM
+		( select ROWNUM rn,GP_IMG,GP_NAME,GP_MEMBER_COUNT,GP_DISCLOSURE,GP_NUM
+		from ILBO_GROUP
+		WHERE GP_NAME LIKE '%'||#{q}||'%' )
+
+		where
+		rn between #{start} and #{end}
+
+	</select>
+
+	<select id="getGroupInfo" parameterType="int" resultMap="GroupDto">
+		SELECT GP_NUM,GP_NUM_CODE,GP_NAME,GP_IMG,GP_DISCLOSURE,TO_CHAR(GP_DATE,'""YYYY"년 "MM"월 "DD"일"')AS GP_DATE,GP_MANAGER,GP_MEMBER_COUNT,GP_MEMBER FROM ILBO_GROUP WHERE GP_NUM = #{gpNum}
+	</select>
+
+	<update id="updateGpImg">
+		UPDATE ILBO_GROUP SET GP_IMG = #{updateGpImgFile} WHERE GP_NUM = #{gpnum}
+	</update>
+
+	<select id="getOldFile" parameterType="int" resultType="String">
+		SELECT GP_IMG FROM ILBO_GROUP WHERE GP_NUM = #{gpnum}
+	</select>
+
+	<select id="getGroupRequest" resultType="String">
+		SELECT GP_MEM_ID_RQ FROM ILBO_GROUP_REQUEST WHERE GP_MEM_ID_RQ = #{memId} AND GP_NUM_RQ = #{gpNum}
+	</select>
+
+	<insert id="insertRQ">
+		INSERT INTO ILBO_GROUP_REQUEST VALUES(#{memId},#{gpNum})
+	</insert>
+
+	<delete id="CancelRQ">
+		DELETE FROM ILBO_GROUP_REQUEST WHERE GP_MEM_ID_RQ = #{memId} AND GP_NUM_RQ = #{gpNum}
+	</delete>
+
+	<select id="getRequestGroupMembers" resultMap="GroupRequest" parameterType="int">
+		SELECT MEM_PROFILE,MEM_NAME,GP_MEM_ID_RQ,GP_NUM_RQ
+		FROM ILBO_GROUP_REQUEST, ILBO_MEMBER
+		WHERE GP_MEM_ID_RQ = MEM_ID AND GP_NUM_RQ = #{gpNum}
+	</select>
+
+	<select id="discriminationGpMem" parameterType="int" resultType="String">
+		SELECT GP_MEMBER FROM ILBO_GROUP WHERE GP_NUM_CODE = #{gpNum} AND GP_MEMBER = #{memId} AND GP_MANAGER = '그룹 멤버'
+	</select>
+
+	<select id="discriminationGpMem2" parameterType="int" resultType="String">
+		SELECT GP_MEMBER FROM ILBO_GROUP WHERE GP_NUM_CODE = #{gpNum} AND GP_MEMBER = #{memId} AND GP_MANAGER = '관리자'
+	</select>
+	
+	<select id="discriminationGpMem3" parameterType="int" resultType="String">
+		SELECT GP_MEMBER FROM ILBO_GROUP WHERE GP_NUM_CODE = #{gpNum} AND GP_MEMBER = #{memId} AND GP_MANAGER = '그룹장'
+	</select>
+
+	<select id="getDisclosure" parameterType="int" resultType="String">
+		SELECT GP_DISCLOSURE FROM ILBO_GROUP WHERE GP_NUM = #{gpNum}
+	</select>
+
+	<delete id="deleteRqTable">
+		DELETE FROM ILBO_GROUP_REQUEST WHERE GP_MEM_ID_RQ = #{memId} AND GP_NUM_RQ = #{gpNum}
+	</delete>
+	
+	<update id="updateMemCount" parameterType="int">
+		UPDATE ILBO_GROUP SET GP_MEMBER_COUNT = GP_MEMBER_COUNT + 1 WHERE GP_NUM = #{gpNum}
+	</update>
+	
+	<insert id="joinGroup">
+		INSERT INTO ILBO_GROUP(GP_NUM,GP_NUM_CODE,GP_MEMBER,GP_DATE,GP_MANAGER) VALUES(#{maxGpNum},#{gpNum},#{memId},SYSDATE,'그룹 멤버')
+	</insert>
+
+	<select id="getGpBoard" resultMap="boardView">
+		SELECT MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,GP_NAME,GP_MANAGER
+		FROM (SELECT ROWNUM rn, K.* FROM ( SELECT DISTINCT MEM_ID, MEM_PROFILE, MEM_NAME, BO_NUM, BO_CONTENT, BO_DATE, BO_FILE, BO_GROUPNUM, BO_TYPE,GP_NAME,GP_MANAGER
+		FROM ILBO_BOARD INNER JOIN ILBO_MEMBER ON BO_WRITER = MEM_ID
+		INNER JOIN ILBO_GROUP ON BO_GP_NUM = GP_NUM
+		WHERE BO_GP_NUM = #{gpNum} AND BO_GROUPNUM = 0
+		ORDER BY BO_DATE DESC
+		) K )
+		WHERE rn BETWEEN #{start} AND #{end}
+	</select>
+	
+	<select id="myGroupMember"  resultType="int">
+	SELECT NVL(MAX(GP_MEMBER),0) FROM ILBO_GROUP WHERE GP_NUM_CODE = #{gpNum} AND GP_MEMBER = #{sessionId}
+	</select>
+	
+	<select id="gpKing" resultMap="groupMember">
+	SELECT * FROM ILBO_GROUP JOIN ILBO_MEMBER ON GP_MEMBER = MEM_ID WHERE GP_NUM_CODE = #{gpNum} AND GP_MEMBER = #{memId}
+	</select>
+	
+	<update id="updateRank">
+	UPDATE ILBO_GROUP SET GP_MANAGER = #{gpManager} WHERE GP_NUM_CODE = #{gpNum} AND GP_MEMBER = #{memId}
+	</update>
+
+	<delete id="deleteBoList" parameterType="int">
+	DELETE FROM ILBO_BOARD WHERE BO_GP_NUM = #{gpNum}
+	</delete>
+	
+	<delete id="deleteGroupAll" parameterType="int">
+	DELETE FROM ILBO_GROUP WHERE GP_NUM_CODE = #{gpNum}
+	</delete>
+	
+	<delete id="deleteGroupMem">
+	DELETE FROM ILBO_GROUP WHERE GP_NUM_CODE = #{gpNum} AND GP_MEMBER = #{memId}
+	</delete>
+	
+	<update id="updateGroupMemCount">
+	UPDATE ILBO_GROUP SET GP_MEMBER_COUNT = GP_MEMBER_COUNT - 1 WHERE GP_NUM_CODE = #{gpNum} AND GP_NAME IS NOT NULL
+	</update>
+	
+	<delete id="deleteGroupRq" parameterType="int">
+	DELETE FROM ILBO_GROUP_REQUEST WHERE GP_NUM_RQ = #{gpNum} 
+	</delete>
+	
+	<select id="getSearchPhotos" parameterType="String" resultMap="boardView">
+	SELECT * FROM ILBO_BOARD JOIN ILBO_MEMBER ON MEM_ID = BO_WRITER WHERE (BO_CONTENT LIKE '%'||#{q}||'%' OR BO_WRITERSNAME LIKE '%'||#{q}||'%') AND BO_TYPE = 'PICTURE' AND BO_VISIBLITY = '전체공개'
+	</select>
+
+	<resultMap type="com.IlboSns.dto.IlboRankingDto" id="ranking">
+		<result property="boNum" column="BO_NUM" />
+		<result property="numOfInteraction" column="NUM_OF_INTERATION" />
+		<result property="boContent" column="BO_CONTENT" />
+	</resultMap>
+
+	<resultMap type="com.IlboSns.dto.IlboBoardReplyDto" id="boardReply">
+		<result property="memName" column="MEM_NAME" />
+		<result property="memProfile" column="MEM_PROFILE" />
+		<result property="reContent" column="RE_CONTENT" />
+		<result property="reWriter" column="RE_WRITER" />
+		<result property="reDate" column="RE_DATE" />
+		<result property="reBoNum" column="RE_BONUM" />
+		<result property="reGroup" column="RE_GROUP" />
+		<result property="reTagName" column="RE_TAG_NAME" />
+		<result property="reTagId" column="RE_TAG" />
+		<result property="reSeq" column="RE_SEQ" />
+	</resultMap>
+
+	<resultMap type="com.IlboSns.dto.IlboBoardViewDto" id="boardView">
+		<result property="memId" column="MEM_ID" />
+		<result property="memName" column="MEM_NAME" />
+		<result property="memProfile" column="MEM_PROFILE" />
+		<result property="boNum" column="BO_NUM" />
+		<result property="boType" column="BO_TYPE" />
+		<result property="boContent" column="BO_CONTENT" />
+		<result property="boDate" column="BO_DATE" />
+		<result property="boFile" column="BO_FILE" />
+		<result property="boGroupNum" column="BO_GROUPNUM" />
+		<result property="boModDate" column="BO_MODDATE" />
+		<result property="boVisiblity" column="BO_VISIBLITY" />
+		<result property="boGpNum" column="BO_GP_NUM" />
+		<result property="gpName" column="GP_NAME" />
+		<result property="numOfInteraction" column="NUM_OF_INTERATION" />
+	</resultMap>
+
+	<resultMap type="com.IlboSns.dto.IlboBoardDto" id="boarddto">
+	
+		<result property="boNum" column="BO_NUM" />
+		<result property="boVisiblity" column="BO_VISIBLITY" />
+		<result property="boContent" column="BO_CONTENT" />
+		<result property="boWriter" column="BO_WRITER" />
+		<result property="boDate" column="BO_DATE" />
+		<result property="boModDate" column="BO_MODDATE" />
+		<result property="boType" column="BO_TYPE" />
+		<result property="boFile" column="BO_FILE" />
+		<result property="boGroupNum" column="BO_GROUPNUM" />
+		<result property="boWritersName" column="BO_WRITERSNAME" />
+	</resultMap>
+
+	<resultMap type="com.IlboSns.dto.IlboGroupDto" id="GroupDto">
+		<result property="gpNum" column="GP_NUM" />
+		<result property="gpNumCode" column="GP_NUM_CODE" />
+		<result property="gpName" column="GP_NAME" />
+		<result property="gpImg" column="GP_IMG" />
+		<result property="gpDisclosure" column="GP_DISCLOSURE" />
+		<result property="gpMember" column="GP_MEMBER" />
+		<result property="gpDate" column="GP_DATE" />
+		<result property="gpManager" column="GP_MANAGER" />
+		<result property="gpMemberCount" column="GP_MEMBER_COUNT" />
+	</resultMap>
+
+	<resultMap type="com.IlboSns.dto.IlboGroupRequestDto" id="GroupRequest">
+		<result property="memProfile" column="MEM_PROFILE" />
+		<result property="memName" column="MEM_NAME" />
+		<result property="gpMemIdRq" column="GP_MEM_ID_RQ" />
+		<result property="gpNumRq" column="GP_NUM_RQ" />
+	</resultMap>
+
+	<resultMap type="com.IlboSns.dto.IlboGroupMemberDto" id="groupMember">
+		<result property="memId" column="MEM_ID" />
+		<result property="memName" column="MEM_NAME" />
+		<result property="memProfile" column="MEM_PROFILE" />
+		<result property="memAddr" column="MEM_ADDR" />
+		<result property="memCompany" column="MEM_COMPANY" />
+		<result property="memSchool" column="MEM_SCHOOL" />
+		<result property="memBirth" column="MEM_BIRTH" />
+		<result property="gpNum" column="GP_NUM" />
+		<result property="gpManager" column="GP_MANAGER" />
+	</resultMap>
+</mapper>

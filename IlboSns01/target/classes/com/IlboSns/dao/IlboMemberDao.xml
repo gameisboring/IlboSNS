@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    
+    
+    <mapper namespace="com.IlboSns.dao.IlboMemberDao">
+    	<select id="getMemberById" resultMap="memberdto" parameterType="int">
+    		SELECT MEM_ID, MEM_EMAIL, MEM_TEL, MEM_NAME, MEM_PROFILE, MEM_ADDR, MEM_BIRTH, MEM_COMPANY, MEM_SCHOOL, MEM_LIFE
+    		FROM ILBO_MEMBER 
+    		WHERE MEM_ID = #{id}
+    	</select>
+    	
+    	<select id="memberLogin" resultMap="memberdto" parameterType="String">
+    		SELECT NVL(MEM_ID,0) AS MEM_ID,MEM_PROFILE, MEM_NAME FROM ILBO_MEMBER WHERE MEM_EMAIL=#{memEmail} AND MEM_PW=#{memPw}
+    	</select>
+    	
+    	<select id="selectEmail" resultMap="memberdto" parameterType="String">
+    		SELECT MEM_NAME, MEM_EMAIL FROM ILBO_MEMBER WHERE MEM_EMAIL = #{memEmail}
+    	</select>
+    	
+    	<update id="updateMember" parameterType="com.IlboSns.dto.IlboMemberDto">
+    		UPDATE ILBO_MEMBER
+    		SET
+    		<if test="memAddr != null">
+    			MEM_ADDR = #{memAddr}
+    		</if>
+    		<if test="memBirth != null">
+    			MEM_BIRTH = #{memBirth}
+    		</if>
+    		<if test="memTel != null">
+    			MEM_TEL = #{memTel}
+    		</if>
+    		<if test="memCompany != null">
+    			MEM_COMPANY = #{memCompany}
+    		</if>
+    		<if test="memSchool != null">
+    			MEM_SCHOOL = #{memSchool}
+    		</if>
+    		WHERE MEM_ID = #{memId}
+    	</update>
+   
+   		<update id="updateProfile" parameterType="String">
+    		UPDATE ILBO_MEMBER
+    		SET MEM_PROFILE = #{fileName}
+    		WHERE MEM_ID = #{loginId}
+    	</update>
+    	
+   		<select id="getProfileById" resultType="String" parameterType="int">
+    		SELECT MEM_PROFILE FROM ILBO_MEMBER WHERE MEM_ID = #{loginId}
+    	</select>
+    	
+    	<select id="checkDuplicate" parameterType="com.IlboSns.dto.IlboMemberDto" resultType = "String">
+ 			SELECT MEM_EMAIL FROM ILBO_MEMBER 
+ 			WHERE MEM_EMAIL = #{memEmail}
+ 		</select>
+ 	
+ 		<select id="getMaxNum" parameterType="com.IlboSns.dto.IlboMemberDto" resultType = "int">
+ 			SELECT NVL(MAX(MEM_ID),0) + 1 FROM ILBO_MEMBER
+	 	</select>
+	 	
+	 	<insert id="insertMemInfo" parameterType="com.IlboSns.dto.IlboMemberDto">
+	 		INSERT INTO ILBO_MEMBER(MEM_ID, MEM_EMAIL, MEM_PW, MEM_TEL, MEM_NAME, MEM_PROFILE, MEM_DATE, MEM_BIRTH, MEM_GENDER) 
+	 		VALUES(#{memId}, #{memEmail}, #{memPw}, #{memTel}, #{memName}, #{memProfile}, SYSDATE, #{memBirth}, #{memGender})
+	 	</insert>
+	 	
+	 	<update id="MemberNewPw" >
+	 		UPDATE ILBO_MEMBER SET MEM_PW = #{id_NewPw} WHERE MEM_EMAIL= #{memEmail}
+	 	</update>
+   		
+   		<insert id="insertFollow" parameterType="int">
+	 		INSERT INTO ILBO_FOLLOW(FLW_FOLLOWER, FLW_RECEIVER, FLW_DATE) VALUES(#{sendId}, #{receiveId}, SYSDATE)
+	 	</insert>
+	 	
+	 	<select id="selectFollow" resultMap="followdto" parameterType="int">
+	 		SELECT * FROM ILBO_FOLLOW WHERE FLW_FOLLOWER = #{sendId} AND FLW_RECEIVER = #{receiveId}
+	 	</select>
+	 	
+	 	<select id="getFollowers" resultMap="followdto" parameterType="int">
+	 		SELECT FLW_FOLLOWER,FLW_RECEIVER,FLW_DATE,MEM_NAME,MEM_PROFILE FROM ILBO_FOLLOW,ILBO_MEMBER WHERE FLW_FOLLOWER = MEM_ID AND FLW_RECEIVER = #{memId} ORDER BY FLW_FOLLOWER 
+	 	</select>
+	 	
+	 	<select id="getFollows" resultMap="followdto" parameterType="int">
+	 		SELECT FLW_FOLLOWER,FLW_RECEIVER,FLW_DATE,MEM_PROFILE,MEM_NAME FROM ILBO_FOLLOW,ILBO_MEMBER WHERE FLW_RECEIVER = MEM_ID AND FLW_FOLLOWER = #{memId} ORDER BY FLW_RECEIVER
+	 	</select>
+	 	
+	 	<select id="getFollowsCount" parameterType="int" resultMap="followsCount">
+	 		SELECT COUNT(DECODE(FLW_FOLLOWER,3,1)) FOLLOWCOUNT,
+					COUNT(DECODE(FLW_RECEIVER,3,1)) FOLLOWERCOUNT FROM ILBO_FOLLOW
+	 	</select>
+	 	
+	 	<select id="getAllMemberList" resultMap="memberdto">
+	 		SELECT * FROM ILBO_MEMBER
+	 	</select>
+	 	
+	 	<delete id="deleteFollow" parameterType="int">
+	 		DELETE FROM ILBO_FOLLOW WHERE FLW_FOLLOWER = #{sendId} AND FLW_RECEIVER = #{receiveId}
+	 	</delete>
+	 	
+	 	<select id="getSearchMember" parameterType="String" resultMap="memberdto">
+   		 SELECT MEM_ID, MEM_PROFILE, MEM_NAME, MEM_ADDR,MEM_BIRTH,MEM_COMPANY,MEM_SCHOOL
+         FROM ILBO_MEMBER
+         WHERE MEM_NAME like '%' || #{q} || '%'
+   		</select>
+   		
+   		<select id="getGroupMember" parameterType="int" resultMap="groupMember">
+		SELECT MEM_ID,MEM_NAME,MEM_PROFILE,MEM_ADDR,MEM_COMPANY,MEM_SCHOOL,MEM_BIRTH,GP_NUM,GP_MANAGER FROM ILBO_MEMBER,ILBO_GROUP WHERE MEM_ID = GP_MEMBER AND GP_NUM_CODE = #{gpNum} ORDER BY GP_NUM
+		</select>
+   		
+   		<select id="getFollowersAsMemberDto" resultMap="memberdto">
+   			SELECT MEM_ID, MEM_NAME, MEM_PROFILE, MEM_SCHOOL, MEM_ADDR, MEM_COMPANY
+   			FROM ILBO_MEMBER
+   			WHERE MEM_ID IN (SELECT FLW_FOLLOWER FROM ILBO_FOLLOW WHERE FLW_RECEIVER = #{sendId})
+   		</select>
+   		
+   		<select id="getFollowsAsMemberDto" resultMap="memberdto">
+   			SELECT MEM_ID, MEM_NAME, MEM_PROFILE , MEM_SCHOOL, MEM_ADDR, MEM_COMPANY
+   			FROM ILBO_MEMBER
+   			WHERE MEM_ID IN (SELECT FLW_RECEIVER FROM ILBO_FOLLOW WHERE FLW_FOLLOWER = #{sendId})
+   		</select>
+   		
+   		<select id="getChatroomMemberByRoomId" resultMap="memberdto">
+   			SELECT MEM_ID, MEM_NAME, MEM_PROFILE , MEM_SCHOOL, MEM_ADDR, MEM_COMPANY
+   			FROM ILBO_MEMBER
+   			WHERE MEM_ID IN (SELECT CRJ_MEMBERID FROM ILBO_CHATROOM_JOINER WHERE CRJ_ROOMID = #{roomId})
+   		</select>
+   		
+   		<select id="getSameSchool" resultMap="memberdto">
+   			SELECT MEM_ID, MEM_NAME, MEM_PROFILE, MEM_SCHOOL, MEM_ADDR, MEM_COMPANY
+   			FROM ILBO_MEMBER
+   			WHERE MEM_SCHOOL = #{memSchool} AND MEM_ID != #{memId}
+   		</select>
+   		
+   		<select id="getSameCompany" resultMap="memberdto">
+   			SELECT MEM_ID, MEM_NAME, MEM_PROFILE, MEM_SCHOOL, MEM_ADDR, MEM_COMPANY
+   			FROM ILBO_MEMBER
+   			WHERE MEM_COMPANY = #{memCompany} AND MEM_ID != #{memId}
+   		</select>
+   		
+   		<select id="getSameAddr" resultMap="memberdto">
+   			SELECT MEM_ID, MEM_NAME, MEM_PROFILE, MEM_SCHOOL, MEM_ADDR, MEM_COMPANY
+   			FROM ILBO_MEMBER
+   			WHERE MEM_ADDR= #{memAddr} AND MEM_ID != #{memId}
+   		</select>
+	 	
+   		<resultMap type="com.IlboSns.dto.IlboFollowDto" id="followdto">
+			<result property="flwFollower" column="FLW_FOLLOWER"/>
+			<result property="flwReceiver" column="FLW_RECEIVER"/>
+			<result property="flwDate" column="FLW_DATE"/>
+			<result property="memProfile" column="MEM_PROFILE"/>
+			<result property="memName" column="MEM_NAME"/>
+		</resultMap>
+		
+		<resultMap type="int" id="followsCount">
+			<result property="followCnt" column="FOLLOWCOUNT"/>
+			<result property="followerCnt" column="FOLLOWERCOUNT"/>
+		</resultMap>
+   
+   		<resultMap type="com.IlboSns.dto.IlboMemberDto" id="memberdto">
+			<result property="memId" column="MEM_ID"/>
+			<result property="memPw" column="MEM_PW"/>
+			<result property="memEmail" column="MEM_EMAIL"/>
+			<result property="memTel" column="MEM_TEL"/>
+			<result property="memName" column="MEM_NAME"/>
+			<result property="memProfile" column="MEM_PROFILE"/>
+			<result property="memAddr" column="MEM_ADDR"/>
+			<result property="memBirth" column="MEM_BIRTH"/>
+			<result property="memCompany" column="MEM_COMPANY"/>
+			<result property="memSchool" column="MEM_SCHOOL"/>
+			<result property="memLife" column="MEM_LIFE"/>
+		</resultMap>
+		
+		<resultMap type="com.IlboSns.dto.IlboGroupMemberDto" id="groupMember">
+			<result property="memId" column="MEM_ID"/>
+			<result property="memName" column="MEM_NAME"/>
+			<result property="memProfile" column="MEM_PROFILE"/>
+			<result property="memAddr" column="MEM_ADDR"/>
+			<result property="memCompany" column="MEM_COMPANY"/>
+			<result property="memSchool" column="MEM_SCHOOL"/>
+			<result property="memBirth" column="MEM_BIRTH"/>
+			<result property="gpNum" column="GP_NUM"/>
+			<result property="gpManager" column="GP_MANAGER"/>
+		</resultMap>
+    </mapper>
