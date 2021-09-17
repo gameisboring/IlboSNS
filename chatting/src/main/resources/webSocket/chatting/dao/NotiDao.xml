@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    
+    <mapper namespace="webSocket.chatting.dao.NotiDao">
+    
+    <insert id="insertNoti" parameterType="webSocket.chatting.message.MessageModel">
+    	INSERT INTO ILBO_NOTIFICATION(NOTI_TYPE, NOTI_SENDER, NOTI_RECEIVER, NOTI_TIME, NOTI_BODY) VALUES(#{type}, TO_NUMBER(#{sender}), TO_NUMBER(#{receiver}), TO_DATE(#{time},'yyyy-mm-dd hh24-mi-ss'), #{body})
+    </insert>
+    
+    <select id="getNotifications" parameterType="int" resultMap="notifidto">
+    	SELECT NOTI_TYPE, NOTI_SENDER, MEM_NAME, NOTI_RECEIVER, NOTI_TIME, NOTI_BODY
+    	FROM ILBO_NOTIFICATION INNER JOIN ILBO_MEMBER ON MEM_ID = NOTI_SENDER 
+    	WHERE NOTI_RECEIVER = #{id}
+    </select>
+    
+    <resultMap id="notifidto" type="webSocket.chatting.message.MessageModel">
+    	<result property="type" column="NOTI_TYPE"/>
+    	<result property="receiver" column="NOTI_RECEIVER"/>
+    	<result property="time" column="NOTI_TIME"/>
+    	<result property="body" column="NOTI_BODY"/>
+    	<result property="sender" column="NOTI_SENDER"/>
+    	<result property="senderName" column="MEM_NAME"/>
+    </resultMap>
+    
+    </mapper>

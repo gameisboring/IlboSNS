@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="webSocket.chatting.dao.ChatDao">
+	<select id="getChattingByRoomId" resultMap="messagedto" parameterType="String">
+		SELECT CHAT_ROOM, CHAT_COMMENT, CHAT_USER, MEM_NAME, CHAT_DATE
+		FROM ILBO_CHATTING INNER JOIN ILBO_MEMBER ON CHAT_USER = MEM_ID
+		WHERE #{memId}=CHAT_ROOM
+		ORDER BY CHAT_DATE
+	</select>
+
+	<insert id="joinMemberToChatroom">
+		INSERT INTO ILBO_CHATROOM_JOINER(CRJ_ROOMID, CRJ_MEMBERID)
+		VALUES(#{channelId},#{joiner})
+	</insert>
+
+	<select id="getChatroomMembersByRoomId" parameterType="String" resultType="String">
+		SELECT CRJ_MEMBERID FROM ILBO_CHATROOM_JOINER WHERE CRJ_ROOMID =
+		#{channelId}
+	</select>
+
+	<insert id="insertChat" parameterType="webSocket.chatting.message.MessageModel">
+		INSERT INTO ILBO_CHATTING(CHAT_USER, CHAT_ROOM, CHAT_COMMENT, CHAT_DATE)
+		VALUES(#{sender}, #{receiver}, #{body},TO_DATE(#{time},'yyyy-mm-dd
+		hh24:mi:ss'))
+	</insert>
+
+	<select id="isInChatroom" parameterType="String" resultType="int">
+		SELECT NVL(COUNT(*),0) FROM ILBO_CHATROOM_JOINER WHERE #{roomId} =
+		CRJ_ROOMID AND #{loginId} = CRJ_MEMBERID
+	</select>
+
+	<insert id="makeChatroom">
+		INSERT INTO ILBO_CHATROOM(CR_ID, CR_NAME) VALUES(#{roomId}, #{roomName})
+	</insert>
+
+	<select id="getMaxRoomNum" resultType="int">
+		SELECT NVL(max(to_number(regexp_replace(CR_ID, '[^0-9]'))),0) FROM
+		ILBO_CHATROOM
+	</select>
+
+	<select id="getChatrooms" resultMap="chatroomdto" parameterType="String">
+		SELECT CR_ID, CR_NAME, COUNT(DISTINCT CRJ_MEMBERID) CR_PEOPLE, MAX(CHAT_DATE) CR_LASTCHAT
+		FROM ILBO_CHATROOM INNER JOIN ILBO_CHATROOM_JOINER ON CR_ID = CRJ_ROOMID
+							LEFT JOIN ILBO_CHATTING ON CHAT_ROOM = CR_ID
+		GROUP BY CR_ID, CR_NAME
+		HAVING CR_ID IN (SELECT CRJ_ROOMID FROM ILBO_CHATROOM_JOINER WHERE CRJ_MEMBERID = #{senderId})
+		ORDER BY CR_LASTCHAT DESC NULLS LAST
+	</select>
+
+	<delete id="outChatroom">
+		DELETE FROM ILBO_CHATROOM_JOINER WHERE #{sender} = CRJ_MEMBERID AND
+		#{receiver} = CRJ_ROOMID
+	</delete>
+
+	<select id="numInChatroom" resultType="int">
+		SELECT COUNT(*) FROM ILBO_CHATROOM_JOINER WHERE CRJ_ROOMID = #{receiver}
+	</select>
+
+	<delete id="deleteChatroom">
+		DELETE FROM ILBO_CHATROOM WHERE #{receiver} = CR_ID
+	</delete>
+
+	<delete id="deleteChatting">
+		DELETE FROM ILBO_CHATTING WHERE #{receiver} = CHAT_ROOM
+	</delete>
+
+	<resultMap type="webSocket.chatting.message.MessageModel"
+		id="messagedto">
+		<result property="receiver" column="CHAT_ROOM" />
+		<result property="body" column="CHAT_COMMENT" />
+		<result property="sender" column="CHAT_USER" />
+		<result property="senderName" column="MEM_NAME" />
+		<result property="time" column="CHAT_DATE" />
+	</resultMap>
+
+	<resultMap type="webSocket.chatting.chatroom.Chatroom" id="chatroomdto">
+		<result property="roomId" column="CR_Id" />
+		<result property="roomName" column="CR_NAME" />
+		<result property="roomPeople" column="CR_PEOPLE" />
+		<result property="roomLastChat" column="CR_LASTCHAT" />
+	</resultMap>
+</mapper>
